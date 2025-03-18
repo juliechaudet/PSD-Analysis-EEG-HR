@@ -19,7 +19,7 @@ import pingouin as pg
 import statsmodels.api as sm
 
 # Define the folder
-eeg_folder = 'EEG_140TSA'
+eeg_folder = '/volatile/home..../EEG_127TSA'
 
 # Load the list of channel names from the text file
 ch_names = np.loadtxt('ch_names.txt', dtype=str)
@@ -59,6 +59,9 @@ def process_and_accumulate_band(eeg_file, ch_names, frequency_band, all_data):
     psd_mean, freqs = raw_band.compute_psd(method='welch', picks='eeg', reject_by_annotation=True, fmin=frequency_band[0], fmax=frequency_band[1]).get_data(return_freqs=True)
    
     psd_meann = np.mean(psd_mean, axis=1)
+    
+    # Convert from V² to µV²
+    psd_meann *= 1e12  
     
     # Transpose the data matrix
     data_matrix_transposed = np.transpose(psd_meann)
@@ -121,12 +124,12 @@ pheno.loc[:, 'group'] = pheno['group'].replace({0: 'Controls', 1: 'ASD', 2: 'Rel
 
 df_pheno_beta_ROI = pd.merge(df_beta, pheno, on='subject')
 df_pheno_beta_ROI = df_pheno_beta_ROI.drop_duplicates(subset='subject', keep='first')
-df_pheno_beta_ROI.to_csv('/Users/julie/OneDrive/..../Dataset_pheno_beta_ROI.csv', index=False)
+#df_pheno_beta_ROI.to_csv('/Users/julie/OneDrive/..../Dataset_pheno_beta_ROI.csv', index=False)
 
 
 df_pheno_gamma_ROI = pd.merge(df_gamma, pheno, on='subject')
 df_pheno_gamma_ROI = df_pheno_gamma_ROI.drop_duplicates(subset='subject', keep='first')
-df_pheno_gamma_ROI.to_csv('/Users/julie/OneDrive/..../Dataset_pheno_gamma_ROI.csv', index=False)
+#df_pheno_gamma_ROI.to_csv('/Users/julie/OneDrive/..../Dataset_pheno_gamma_ROI.csv', index=False)
 
 #------------------------------------------------------------------------------------------------------------------------
 columns_to_convert = ['Frontal', 'Central', 'Occipital', 'Parietal', 'Temporal_Right', 'Temporal_Left']
@@ -148,7 +151,14 @@ for band, indices in frequency_bands.items():
     
     dataframes[band][hypo_columns_band] = dataframes[band][hypo_columns_band].apply(pd.to_numeric, errors='coerce')
     dataframes[band][hyper_columns_band] = dataframes[band][hyper_columns_band].apply(pd.to_numeric, errors='coerce')
-
+    
+    # Définir le mapping d'inversion des valeurs
+    inverse_mapping = {1: 5, 2: 4, 3: 3, 4: 2, 5: 1}
+    
+    # Appliquer l'inversion aux colonnes hypo et hyper
+    dataframes[band][hypo_columns_band] = dataframes[band][hypo_columns_band].replace(inverse_mapping)
+    dataframes[band][hyper_columns_band] = dataframes[band][hyper_columns_band].replace(inverse_mapping)
+    
     # Process and compute dSSP score for the current band
     dataframes[band]['hypo'] = dataframes[band][hypo_columns_band].mean(axis=1)
     dataframes[band]['hyper'] = dataframes[band][hyper_columns_band].mean(axis=1)
@@ -166,6 +176,7 @@ for band, indices in frequency_bands.items():
 
 df_pheno_beta_ROI.loc[:, 'sex'] = df_pheno_beta_ROI['sex'].replace({'Male':0 , 'Female':1})
 df_pheno_gamma_ROI.loc[:, 'sex'] = df_pheno_gamma_ROI['sex'].replace({'Male':0 , 'Female':1})
+
 
 # For BETA = numeric values
 df_hB = df_pheno_beta_ROI[df_pheno_beta_ROI['group'] == 'ASD']
@@ -189,54 +200,54 @@ df_hG_filtered = df_hG[
     pd.to_numeric(df_hG['adi_crr'], errors='coerce').notna()
 ]
 
-df_hB_filtered.to_excel('/Users/julie/OneDrive/..../Dataset_pheno_beta_ROI_127TSA.xlsx',index=True)
-df_hG_filtered.to_excel('/Users/julie/OneDrive/..../Dataset_pheno_gamma_ROI_127TSA.xlsx',index=True)
+df_hB.to_excel('/volatile/home/jc278357/Documents/....Dataset_pheno_beta_ROI_127TSA.xlsx',index=True)
+df_hG.to_excel('/volatile/home/jc278357/Documents/..../Dataset_pheno_gamma_ROI_127TSA.xlsx',index=True)
 
 
-#%%------------------------------------------------- Multiple Linear Regression --------------------------------------------
+#%%------------------------------------------------- Multiple Linear Regression ------------------------------------------------------
 
 #Change the “hypo” variable by the other clinical variables (adi-crr...)
 
 import pandas as pd
-import numpy as np
 import statsmodels.api as sm
 
 def run_Lm_analysis(df, output_filename):
     regions = ['Frontal', 'Central', 'Parietal', 'Occipital', 'Temporal_Left', 'Temporal_Right']
-    results = pd.DataFrame(columns=['Region', 'Model', 'Intercept', 'Slope_hypo', 'Slope_age', 'Slope_sex', 'p-value_hypo', 'p-value_age', 'p-value_sex', 'R-squared', 'AIC'])
+    results = pd.DataFrame(columns=['Region', 'Model', 'Intercept', 'Slope_adi_crr', 'Slope_age', 'Slope_sex', 
+                                    'p-value_adi_crr', 'p-value_age', 'p-value_sex', 'R-squared', 'AIC'])
     
     for region in regions:
-        # Define independent variables
-        x = df[['hypo', 'age_years', 'sex']]  # Include hypo, age, and sex
-        x = sm.add_constant(x)  # Add a constant for the intercept
+        # Définir les variables indépendantes
+        x = df[['adi_crr', 'age_years', 'sex']]  # Inclure hypo, âge et sexe
+        x = sm.add_constant(x)  # Ajouter une constante pour l'intercept
         
         y = df[region]
         
-        # Multiple linear regression
         model_multiple = sm.OLS(y, x, missing='drop')
         results_summary_multiple = model_multiple.fit()
         aic_multiple = results_summary_multiple.aic
         
-        # Store results
-        results = results.append({
-            'Region': region,
-            'Model': 'Multiple',
-            'Intercept': results_summary_multiple.params[0],
-            'Slope_hypo': results_summary_multiple.params[1],
-            'Slope_age': results_summary_multiple.params[2],
-            'Slope_sex': results_summary_multiple.params[3],
-            'p-value_hypo': results_summary_multiple.pvalues[1],
-            'p-value_age': results_summary_multiple.pvalues[2],
-            'p-value_sex': results_summary_multiple.pvalues[3],
-            'R-squared': results_summary_multiple.rsquared,
-            'AIC': aic_multiple
-        }, ignore_index=True)
+        new_row = pd.DataFrame({
+            'Region': [region],
+            'Model': ['Multiple'],
+            'Intercept': [results_summary_multiple.params[0]],
+            'Slope_adi_crr': [results_summary_multiple.params[1]],
+            'Slope_age': [results_summary_multiple.params[2]],
+            'Slope_sex': [results_summary_multiple.params[3]],
+            'p-value_adi_crr': [results_summary_multiple.pvalues[1]],
+            'p-value_age': [results_summary_multiple.pvalues[2]],
+            'p-value_sex': [results_summary_multiple.pvalues[3]],
+            'R-squared': [results_summary_multiple.rsquared],
+            'AIC': [aic_multiple]
+        })
+        
+        results = pd.concat([results, new_row], ignore_index=True)
 
     results.to_excel(output_filename, index=False)
 
-# Call the function
-run_Lm_analysis(df_hB_filtered, '/Users/julie/OneDrive/.....Régression multiple/Lm_ASD_beta_hypo_age_sex.xlsx')
-run_Lm_analysis(df_hG_filtered, '/Users/julie/OneDrive/..../Régression multiple/Lm_ASD_gamma_hypo_age_sex.xlsx')
+run_Lm_analysis(df_hB, '/volatile/home/jc278357/Documents/Analyse EEG/résultats_127TSA/Résultats_SSP_inverse/Lm_ASD_beta_adi_crr_age_sex.xlsx')
+run_Lm_analysis(df_hG, '/volatile/home/jc278357/Documents/Analyse EEG/résultats_127TSA/Résultats_SSP_inverse/Lm_ASD_gamma_adi_crr_age_sex.xlsx')
+
 
 # FDR correction
 pvals = [.20, .002, .64, .16, .20, .66]
@@ -256,7 +267,7 @@ def cohen_f2(r_squared):
     return r_squared / (1 - r_squared)
 
 # Example usage
-r2 = 0.09  # Replace with your actual R² value
+r2 = 0.15  # Replace with your actual R² value
 effect_size = cohen_f2(r2)
 print(f"Cohen's f² effect size: {effect_size:.3f}")
 
@@ -278,14 +289,14 @@ def plot_linear_regression(df, x_col, y_col):
     sns.lmplot(x=x_col, y=y_col, data=df, aspect=1.5, height=5, ci=95, line_kws={'color': 'black'}, scatter_kws={'color': 'black'})
     
     # Add labels and title
-    plt.title("Right Temporal", fontweight='bold', fontsize=16)
-    #plt.xlabel('ADI CRR score', fontsize=12)
-    plt.ylabel('PSD gamma (V²/Hz)', fontsize=12)
+    plt.title("Right Temporal", fontweight='bold', fontsize=17)
+    plt.xlabel('ADI-R C Score', fontsize=14)
+    plt.ylabel('PSD gamma (μV²/Hz)', fontsize=14)
     
     # Show plot
     plt.show()
 
-plot_linear_regression(df_hG_filtered, x_col='adi_crr', y_col='Temporal_Right')
+plot_linear_regression(df_hG, x_col='adi_crr', y_col='Temporal_Right')
 
 # %%----------------------------------------------------- Plot effect size ------------------------------------------------------
 
@@ -293,30 +304,81 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Define brain regions
-regions = ['Frontal', 'Central', 'Parietal', 'Occipital', 'Right Temporal', 'Left Temporal']
+#regions = ['Frontal', 'Central', 'Parietal', 'Occipital', 'Right Temporal', 'Left Temporal']
 
 # Effect size f² values (replace with your actual data)
-f2_values = [0.14, 0.35, 0.20, 0.12, 0.22, 0.20]
+#f2_values = [0.14, 0.35, 0.20, 0.12, 0.22, 0.20]
 
+# Define brain regions
+regions = ['Frontal', 'Central', 'Parietal', 'Left Temporal']
 
-plt.figure(figsize=(10, 6))
+# Effect size f² values (replace with your actual data)
+f2_values = [0.09, 0.16, 0.12, 0.15]
 
-# Add color zones for predefined effect size thresholds
-plt.axvspan(0.02, 0.15, color='lightgreen', alpha=0.5, label='Small effect (f² ≥ 0.02)')
-plt.axvspan(0.15, 0.35, color='khaki', alpha=0.5, label='Medium effect (f² ≥ 0.15)')
-plt.axvspan(0.35, max(f2_values) + 0.1, color='lightsalmon', alpha=0.5, label='Large effect (f² ≥ 0.35)')
+# Create the plot
+plt.figure(figsize=(8, 5))
+
+# Add colored zones for thresholds defined by your criteria
+plt.axvspan(0.02, 0.15, color='yellowgreen', alpha=0.5, label='Small effect (f² ≥ 0.02)')
+plt.axvspan(0.15, 0.35, color='moccasin', alpha=0.5, label='Medium effect (f² ≥ 0.15)')
+plt.axvspan(0.35, max(f2_values) + 0.1, color='sandybrown', alpha=0.5, label='Large effect (f² ≥ 0.35)')
 
 # Plot effect sizes
 plt.scatter(f2_values, range(len(regions)), color='black')
 
-# Customize the plot
-plt.yticks(range(len(regions)), regions)
-plt.xlabel('Effect Size (f²)')
+# Add a dashed line from the legend to each point
+for i, region in enumerate(regions):
+    # Coordinates of the point for each region (x, y)
+    x = f2_values[i]
+    y = i
+    # Add the dashed line
+    plt.plot([0, x], [y, y], 'k--', lw=1)  # Black dashed line
 
-# Display legend
+# Customize the plot
+plt.yticks(range(len(regions)), regions, fontsize=14)
+plt.xlabel('Effect Size (f²)', fontsize=14)
+
+# Display the legend
 plt.legend(loc='lower right')
+
+# Add a grid to improve readability
 plt.grid(axis='x', linestyle='--', alpha=0.7)
+
+# Adjust layout and show the plot
 plt.tight_layout()
 plt.show()
+
+
+#---------------------------------------------------------------------------------------------------------
+
+#test MannWitney for sex effect
+
+#BETA
+from scipy.stats import mannwhitneyu
+
+regions = ['Frontal', 'Central', 'Parietal', 'Occipital', 'Temporal_Left', 'Temporal_Right']
+
+for region in regions:
+
+    puissance_beta_hommes = df_pheno_beta_ROI[df_pheno_beta_ROI['sex'] == 0][region].dropna()
+    puissance_beta_femmes = df_pheno_beta_ROI[df_pheno_beta_ROI['sex'] == 1][region].dropna()
+
+
+    stat, p_value = mannwhitneyu(puissance_beta_hommes, puissance_beta_femmes)
+
+    # Affichage des résultats
+    print(f"Région : {region}")
+    print(f"  Statistique U = {stat:.3f}, p-value = {round(p_value, 3)}")
+    print("-" * 40)
+
+#-------------------------plot---------------------------------------------------------------------------------------
+
+df_pheno_beta_ROI.loc[:, 'sex'] = df_pheno_beta_ROI['sex'].replace({0:'Male' , 1:'Female'})
+df_pheno_gamma_ROI.loc[:, 'sex'] = df_pheno_gamma_ROI['sex'].replace({0:'Male' , 1:'Female'})
+
+sns.pointplot(x='sex', y='Central', color='black', data=df_pheno_gamma_ROI)
+plt.ylabel('Central PSD gamma (μV²/Hz)', fontsize=12)
+plt.show()
+
 
 
