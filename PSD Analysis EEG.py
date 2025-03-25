@@ -25,8 +25,8 @@ eeg_folder = '/volatile/home..../EEG_127TSA'
 ch_names = np.loadtxt('ch_names.txt', dtype=str)
 
 # Define frequency bands
-beta_band = [14, 30]
-gamma_band = [30, 49]
+beta_band = [12, 30]
+gamma_band = [30, 45]
 
 # Initialize matrices to store all data
 all_data_beta = []
@@ -141,7 +141,7 @@ hypo_columns_indices = [2, 15, 16, 17, 18, 19, 20, 21, 23, 26, 28, 29, 30, 31, 3
 hyper_columns_indices = [1, 3, 4, 5, 6, 8, 9, 10, 11, 12, 14, 22, 24, 25, 34, 35, 36, 37, 38]
 
 # Define frequency bands and DataFrames
-frequency_bands = {'beta': [14, 30], 'gamma': [30, 49]}
+frequency_bands = {'beta': [12, 30], 'gamma': [30, 45]}
 dataframes = {'beta': df_pheno_beta_ROI, 'gamma': df_pheno_gamma_ROI}
 
 # Process each frequency band
