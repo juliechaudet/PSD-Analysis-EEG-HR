@@ -279,75 +279,223 @@ elif effect_size < 0.15:
 else:
     print("Large effect")
     
-# %%----------------------------------------------------- PLOT linear regression -----------------------------------------------
-import pandas as pd
+# %%----------------------------------------------------- PLOT Figure 1 -----------------------------------------------
+
 import seaborn as sns
 import matplotlib.pyplot as plt
-
-def plot_linear_regression(df, x_col, y_col):
-
-    sns.lmplot(x=x_col, y=y_col, data=df, aspect=1.5, height=5, ci=95, line_kws={'color': 'black'}, scatter_kws={'color': 'black'})
-    
-    # Add labels and title
-    plt.title("Right Temporal", fontweight='bold', fontsize=17)
-    plt.xlabel('ADI-R C Score', fontsize=14)
-    plt.ylabel('PSD gamma (μV²/Hz)', fontsize=14)
-    
-    # Show plot
-    plt.show()
-
-plot_linear_regression(df_hG, x_col='adi_crr', y_col='Temporal_Right')
-
-# %%----------------------------------------------------- Plot effect size ------------------------------------------------------
-
-import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import numpy as np
 
-# Define brain regions
-#regions = ['Frontal', 'Central', 'Parietal', 'Occipital', 'Right Temporal', 'Left Temporal']
+# --- Data for part B ---
+regions_B = ['Frontal', 'Central', 'Parietal', 'Occipital', 'Left Temporal', 'Right Temporal']
+f2_values = [0.14, 0.35, 0.20, 0.12, 0.22, 0.20]
 
-# Effect size f² values (replace with your actual data)
-#f2_values = [0.14, 0.35, 0.20, 0.12, 0.22, 0.20]
+# --- Data for part A ---
+regions_of_interest = ['Frontal', 'Central', 'Parietal', 'Occipital', 'Temporal_Left', 'Temporal_Right']
 
-# Define brain regions
-regions = ['Frontal', 'Central', 'Parietal', 'Left Temporal']
+# Create entire figure 
+fig = plt.figure(figsize=(18, 12))
+gs = gridspec.GridSpec(
+    3, 3, figure=fig,
+    height_ratios=[1, 1, 1.2],  
+    hspace=0.3, wspace=0.25         # less space between subgraphs
+)
 
-# Effect size f² values (replace with your actual data)
-f2_values = [0.09, 0.16, 0.12, 0.15]
+# -------------------------------
+# Part A : 6 regressions
+# -------------------------------
+axes_A = []
 
-# Create the plot
-plt.figure(figsize=(8, 5))
+for i, region in enumerate(regions_of_interest):
+    ax = fig.add_subplot(gs[i // 3, i % 3])
+    axes_A.append(ax)
 
-# Add colored zones for thresholds defined by your criteria
-plt.axvspan(0.02, 0.15, color='yellowgreen', alpha=0.5, label='Small effect (f² ≥ 0.02)')
-plt.axvspan(0.15, 0.35, color='moccasin', alpha=0.5, label='Medium effect (f² ≥ 0.15)')
-plt.axvspan(0.35, max(f2_values) + 0.1, color='sandybrown', alpha=0.5, label='Large effect (f² ≥ 0.35)')
+    # Nom lisible pour le titre
+    if region == 'Temporal_Left':
+        title_name = 'Left Temporal'
+    elif region == 'Temporal_Right':
+        title_name = 'Right Temporal'
+    else:
+        title_name = region
 
-# Plot effect sizes
-plt.scatter(f2_values, range(len(regions)), color='black')
+    sns.regplot(
+        x='hypo', y=region, data=df_hB,
+        ci=95, line_kws={'color': 'black'}, scatter_kws={'color': 'black', 's': 25},
+        ax=ax
+    )
 
-# Add a dashed line from the legend to each point
-for i, region in enumerate(regions):
-    # Coordinates of the point for each region (x, y)
+    ax.set_title(title_name, fontweight='bold', fontsize=14)
+    ax.set_xlabel('Hypo-sensory score', fontsize=12)
+    ax.set_ylabel('PSD beta (μV²/Hz)', fontsize=12)
+    ax.tick_params(labelsize=11)
+    ax.set_box_aspect(0.6)  # rectangular shape
+
+# Label A placed at axis coordinates
+axes_A[0].text(-0.25, 1.05, 'A', transform=axes_A[0].transAxes,
+               fontsize=26, fontweight='bold', va='top')
+
+# -------------------------------
+# Part B: size effect f² (centred)
+# -------------------------------
+ax_b = fig.add_subplot(gs[2, 1:2])  # occupies columns 1 and 2 (centred)
+
+# Coloured areas
+ax_b.axvspan(0.02, 0.15, color='yellowgreen', alpha=0.5, label='Small effect (f² ≥ 0.02)')
+ax_b.axvspan(0.15, 0.35, color='moccasin', alpha=0.5, label='Medium effect (f² ≥ 0.15)')
+ax_b.axvspan(0.35, max(f2_values) + 0.1, color='sandybrown', alpha=0.5, label='Large effect (f² ≥ 0.35)')
+
+# Points and lines
+ax_b.scatter(f2_values, range(len(regions_B)), color='black')
+for i, region in enumerate(regions_B):
     x = f2_values[i]
     y = i
-    # Add the dashed line
-    plt.plot([0, x], [y, y], 'k--', lw=1)  # Black dashed line
+    ax_b.plot([0, x], [y, y], 'k--', lw=1)
 
-# Customize the plot
-plt.yticks(range(len(regions)), regions, fontsize=14)
-plt.xlabel('Effect Size (f²)', fontsize=14)
 
-# Display the legend
-plt.legend(loc='lower right')
+ax_b.set_yticks(range(len(regions_B)))
+ax_b.set_yticklabels(regions_B, fontsize=12)
+ax_b.set_xlabel('Effect size (f²)', fontsize=12)
+ax_b.legend(
+    loc='center left',               
+    bbox_to_anchor=(1.02, 0.5),      
+    fontsize=10, frameon=True       
+)
 
-# Add a grid to improve readability
-plt.grid(axis='x', linestyle='--', alpha=0.7)
+ax_b.grid(axis='x', linestyle='--', alpha=0.7)
+ax_b.set_xlim(left=0)
+ax_b.invert_yaxis()
 
-# Adjust layout and show the plot
-plt.tight_layout()
+
+# Label B placed at axis coordinates
+ax_b.text(-0.50, 1.05, 'B', transform=ax_b.transAxes,
+          fontsize=26, fontweight='bold', va='top')
+
+# -------------------------------
+# backup
+# -------------------------------
+plt.tight_layout(rect=[0.03, 0, 1, 0.98])
+plt.savefig("Figure_1_composite.pdf", dpi=300, bbox_inches='tight')
 plt.show()
 
+print("Composite figure registered under 'Figure_1_composite.pdf'")
+
+
+# %%----------------------------------------------------- PLOT Figure 2 ------------------------------------------------------
+
+
+# --- Data for part B ---
+regions_B = ['Frontal', 'Central', 'Parietal', 'Left Temporal']
+f2_values = [0.09, 0.16, 0.12, 0.15]
+
+# --- Data for part A ---
+regions_of_interest = ['Frontal', 'Central', 'Parietal', 'Temporal_Left']
+
+# Create entire figure
+fig = plt.figure(figsize=(14, 12))  
+gs = gridspec.GridSpec(
+    3, 2, figure=fig,             
+    height_ratios=[1, 1, 1],      
+    hspace=0.33, wspace=0.07
+)
+
+# -------------------------------
+# Part A : 4 regressions
+# -------------------------------
+axes_A = []
+
+for i, region in enumerate(regions_of_interest):
+    ax = fig.add_subplot(gs[i // 2, i % 2])  
+    axes_A.append(ax)
+
+    # Nom lisible pour le titre
+    if region == 'Temporal_Left':
+        title_name = 'Left Temporal'
+    else:
+        title_name = region
+
+    sns.regplot(
+        x='hyper', y=region, data=df_hB,
+        ci=95,
+        line_kws={'color': 'black'},
+        scatter_kws={'color': 'black', 's': 25},  
+        ax=ax
+    )
+
+    ax.set_title(title_name, fontweight='bold', fontsize=14)
+    ax.set_xlabel('Hyper-sensory score', fontsize=12)
+    ax.set_ylabel('PSD beta (μV²/Hz)', fontsize=12)
+    ax.tick_params(labelsize=11)
+    ax.set_box_aspect(0.6)
+
+# Label "A" (placed on the first subplot)
+axes_A[0].text(-0.25, 1.05, 'A', transform=axes_A[0].transAxes,
+               fontsize=26, fontweight='bold', va='top')
+
+# -------------------------------
+# Part B : size effect f²
+# -------------------------------
+ax_b = fig.add_axes([0.29, 0.07, 0.38, 0.25]) 
+# Coloured areas
+ax_b.axvspan(0.02, 0.15, color='yellowgreen', alpha=0.5, label='Small effect (f² ≥ 0.02)')
+ax_b.axvspan(0.15, 0.35, color='moccasin', alpha=0.5, label='Medium effect (f² ≥ 0.15)')
+ax_b.axvspan(0.35, max(f2_values) + 0.1, color='sandybrown', alpha=0.5, label='Large effect (f² ≥ 0.35)')
+
+# Points ans lines
+ax_b.scatter(f2_values, range(len(regions_B)), color='black')
+for i, region in enumerate(regions_B):
+    x = f2_values[i]
+    y = i
+    ax_b.plot([0, x], [y, y], 'k--', lw=1)
+
+ax_b.set_yticks(range(len(regions_B)))
+ax_b.set_yticklabels(regions_B, fontsize=12)
+ax_b.set_xlabel('Effect size (f²)', fontsize=12)
+ax_b.legend(
+    loc='center left',
+    bbox_to_anchor=(1.02, 0.5),
+    fontsize=10, frameon=True
+)
+ax_b.grid(axis='x', linestyle='--', alpha=0.7)
+ax_b.set_xlim(left=0)
+ax_b.invert_yaxis()  # upper frontal
+
+# Label "B"
+ax_b.text(-0.25, 1.05, 'B', transform=ax_b.transAxes,
+          fontsize=26, fontweight='bold', va='top')
+
+# -------------------------------
+# Backup
+# -------------------------------
+plt.tight_layout(rect=[0.03, 0, 1, 0.98])
+plt.savefig("Figure_2_composite.pdf", dpi=300, bbox_inches='tight')
+plt.show()
+
+print("Composite figure registered under 'Figure_2_composite.pdf'")
+
+#%%-----------------------------------------------------PLOT Figure 3--------------------------------------
+
+def plot_linear_regression(df, x_col, y_col, filename=None):
+    g = sns.lmplot(
+        x=x_col, y=y_col, data=df,
+        aspect=1.5, height=5,
+        ci=95,
+        line_kws={'color': 'black'},
+        scatter_kws={'color': 'black'}
+    )
+    
+    g.fig.suptitle("Right Temporal", fontweight='bold', fontsize=17, y=1.02)
+    g.set_xlabels('ADI-R C Score', fontsize=14)
+    g.set_ylabels('PSD gamma (μV²/Hz)', fontsize=14)
+    
+    if filename is not None:
+        g.savefig(filename, dpi=300, bbox_inches='tight')
+        print(f"Figure registered under {filename}")
+    
+    # Afficher le plot
+    plt.show()
+
+# Appel de la fonction
+plot_linear_regression(df_hG, x_col='adi_crr', y_col='Temporal_Right', filename="Right_Temporal_plot.pdf")
 
 #---------------------------------------------------------------------------------------------------------
 
