@@ -3,7 +3,12 @@
 """
 Created on Mon Feb 24 12:07:21 2025
 
-@author: jc278357
+@author: Julie Chaudet
+
+EEG Power Spectral Density (PSD) Analysis for Autism Spectrum Disorder (ASD) Research
+
+This script analyzes beta and gamma power in ASD participants and examines the correlation between these power measures and autism symptomatology using several clinical assessments.
+
 """
 
 import mne
@@ -17,6 +22,9 @@ import seaborn as sns
 
 import pingouin as pg
 import statsmodels.api as sm
+
+#%%
+#---------------------------------------------1. Calculation of beta et gamma PSD ----------------------------
 
 # Define the folder
 eeg_folder = '/volatile/home..../EEG_127TSA'
@@ -115,8 +123,10 @@ df_gamma['Parietal'] = calculate_roi_averages(df_gamma.values[:, 1:], parietal_e
 df_gamma['Temporal_Right'] = calculate_roi_averages(df_gamma.values[:, 1:], temporal_right_electrodes) 
 df_gamma['Temporal_Left'] = calculate_roi_averages(df_gamma.values[:, 1:], temporal_left_electrodes)
 
-#------------------------------------------------------------------------------------------------------------------------
-# Create the full dataset with E/I and clinical variables 
+
+#%%
+#----------------------------------------2. Create the full dataset with E/I and clinical variables--------------------------
+ 
 pheno = pd.read_excel('fei_dataset.xlsx')  # Open dataset with clinical variables
 pheno = pheno.iloc[:388, :]  # Reshape 
 pheno.loc[:, 'group'] = pheno['group'].replace({0: 'Controls', 1: 'ASD', 2: 'Relatives'})
@@ -130,7 +140,11 @@ df_pheno_gamma_ROI = pd.merge(df_gamma, pheno, on='subject')
 df_pheno_gamma_ROI = df_pheno_gamma_ROI.drop_duplicates(subset='subject', keep='first')
 #df_pheno_gamma_ROI.to_csv('/Users/julie/OneDrive/..../Dataset_pheno_gamma_ROI.csv', index=False)
 
-#-------------------------------------------------------------------------------------------------------------------------
+
+
+#%%
+# --------------------3. Calculate hypo- and hypersensitivity scores based on items from the Short Sensory Profile (SSP)---------
+
 # Define hypo and hyper column indices
 hypo_columns_indices = [2, 15, 16, 17, 18, 19, 20, 21, 23, 26, 28, 29, 30, 31, 32, 33]
 hyper_columns_indices = [1, 3, 4, 5, 6, 8, 9, 10, 11, 12, 14, 22, 24, 25, 34, 35, 36, 37, 38]
@@ -147,10 +161,11 @@ for band, indices in frequency_bands.items():
     dataframes[band][hypo_columns_band] = dataframes[band][hypo_columns_band].apply(pd.to_numeric, errors='coerce')
     dataframes[band][hyper_columns_band] = dataframes[band][hyper_columns_band].apply(pd.to_numeric, errors='coerce')
     
-    # Définir le mapping d'inversion des valeurs
+    # Define the value inversion mapping
+    # Convert to intuitive scale where higher = more sensory sensitivity
     inverse_mapping = {1: 5, 2: 4, 3: 3, 4: 2, 5: 1}
     
-    # Appliquer l'inversion aux colonnes hypo et hyper
+    # Apply inversion to hypo and hyper columns
     dataframes[band][hypo_columns_band] = dataframes[band][hypo_columns_band].replace(inverse_mapping)
     dataframes[band][hyper_columns_band] = dataframes[band][hyper_columns_band].replace(inverse_mapping)
     
@@ -182,7 +197,7 @@ df_hG = df_pheno_gamma_ROI[df_pheno_gamma_ROI['group'] == 'ASD'] #keep only ASD 
 df_hG = df_hG.applymap(pd.to_numeric, errors='coerce')  # Same
 
 
-#-----------------------------------------------keep subjects with ADI and ADOS----------------------------------------------------------------
+#-----------------------------------------------4. keep subjects with ADI and ADOS----------------------------------------------------------------
 
 df_hB_filtered = df_hB[
     pd.to_numeric(df_hB['ados_css'], errors='coerce').notna() &
@@ -199,9 +214,10 @@ df_hB_filtered.to_excel('/volatile/home/jc278357/Documents/....Dataset_pheno_bet
 df_hG_filtered.to_excel('/volatile/home/jc278357/Documents/..../Dataset_pheno_gamma_ROI_127TSA.xlsx',index=True)
 
 
-#%%------------------------------------------------- Multiple Linear Regression ------------------------------------------------------
+#%%
+#-----------------------------------------------5. Multiple Linear Regression for each clinical measure + age +sex ------------------------------------------------------
 
-#Change the “hypo” variable by the other clinical variables (adi-crr...)
+#Change the “adi_crr” variable by the other clinical variables (ADOS, hypo...)
 
 import pandas as pd
 import statsmodels.api as sm
@@ -213,7 +229,7 @@ def run_Lm_analysis(df, output_filename):
     
     for region in regions:
         # Définir les variables indépendantes
-        x = df[['adi_crr', 'age_years', 'sex']] 
+        x = df[['adi_crr', 'age_years', 'sex']] # Replace ‘adi_crr’ with each clinical measurement.
         x = sm.add_constant(x) 
         
         y = df[region]
@@ -245,11 +261,12 @@ run_Lm_analysis(df_hG_filtered, '/volatile/home/.../Lm_ASD_gamma_adi_crr_age_sex
 
 
 # FDR correction
-pvals = [.20, .002, .64, .16, .20, .66]
+pvals = [.20, .002, .64, .16, .20, .66] # Enter the 6 p-values (from the 6 regions of interest) for each test. 
 reject, pvals_corr = pg.multicomp(pvals, method='fdr_bh')
 print(reject, pvals_corr)
 
-# %%---------------------------------------------------------- Compute Cohen's f² ----------------------------------------------------
+#%%
+#-----------------------------------------------------6. Compute Effect Size : Cohen's f² -------------------------------------------
 def cohen_f2(r_squared):
     """
     Computes Cohen's f² effect size from R².
@@ -270,11 +287,14 @@ print(f"Cohen's f² effect size: {effect_size:.3f}")
 if effect_size < 0.02:
     print("Small effect")
 elif effect_size < 0.15:
-    print("Moderate effect")
-else:
+    print("Medium effect")
+else effect_size < 0.35:
     print("Large effect")
     
-# %%----------------------------------------------------- PLOT Figure 1 -----------------------------------------------
+#%%
+#--------------------------------------------------7. Creation of figures -----------------------------------------------------
+
+#----------------------------------------------------- PLOT Figure 1 -----------------------------------------------
 
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -492,7 +512,8 @@ def plot_linear_regression(df, x_col, y_col, filename=None):
 # Appel de la fonction
 plot_linear_regression(df_hG, x_col='adi_crr', y_col='Temporal_Right', filename="Right_Temporal_plot.pdf")
 
-#---------------------------------------------------------------------------------------------------------
+#%% 
+#-----------------------------------------------8. Complementary Analysis -------------------------------------------
 
 #test MannWitney for sex effect
 
