@@ -119,7 +119,6 @@ df_gamma['Temporal_Left'] = calculate_roi_averages(df_gamma.values[:, 1:], tempo
 # Create the full dataset with E/I and clinical variables 
 pheno = pd.read_excel('fei_dataset.xlsx')  # Open dataset with clinical variables
 pheno = pheno.iloc[:388, :]  # Reshape 
-pheno.loc[:, 'sex'] = pheno['sex'].replace({ 1: 'Male', 2: 'Female'})
 pheno.loc[:, 'group'] = pheno['group'].replace({0: 'Controls', 1: 'ASD', 2: 'Relatives'})
 
 df_pheno_beta_ROI = pd.merge(df_beta, pheno, on='subject')
@@ -130,10 +129,6 @@ df_pheno_beta_ROI = df_pheno_beta_ROI.drop_duplicates(subset='subject', keep='fi
 df_pheno_gamma_ROI = pd.merge(df_gamma, pheno, on='subject')
 df_pheno_gamma_ROI = df_pheno_gamma_ROI.drop_duplicates(subset='subject', keep='first')
 #df_pheno_gamma_ROI.to_csv('/Users/julie/OneDrive/..../Dataset_pheno_gamma_ROI.csv', index=False)
-
-#------------------------------------------------------------------------------------------------------------------------
-columns_to_convert = ['Frontal', 'Central', 'Occipital', 'Parietal', 'Temporal_Right', 'Temporal_Left']
-df_pheno_beta_ROI[columns_to_convert] = df_pheno_beta_ROI[columns_to_convert].astype(float)
 
 #-------------------------------------------------------------------------------------------------------------------------
 # Define hypo and hyper column indices
@@ -179,11 +174,11 @@ df_pheno_gamma_ROI.loc[:, 'sex'] = df_pheno_gamma_ROI['sex'].replace({'Male':0 ,
 
 
 # For BETA = numeric values
-df_hB = df_pheno_beta_ROI[df_pheno_beta_ROI['group'] == 'ASD']
+df_hB = df_pheno_beta_ROI[df_pheno_beta_ROI['group'] == 'ASD'] # keep only ASD subjects
 df_hB = df_hB.applymap(pd.to_numeric, errors='coerce')  # Converts everything to numeric, replaces non-convertible values with NaN
 
 # For GAMMA = numeric values
-df_hG = df_pheno_gamma_ROI[df_pheno_gamma_ROI['group'] == 'ASD']
+df_hG = df_pheno_gamma_ROI[df_pheno_gamma_ROI['group'] == 'ASD'] #keep only ASD subjects
 df_hG = df_hG.applymap(pd.to_numeric, errors='coerce')  # Same
 
 
@@ -200,8 +195,8 @@ df_hG_filtered = df_hG[
     pd.to_numeric(df_hG['adi_crr'], errors='coerce').notna()
 ]
 
-df_hB.to_excel('/volatile/home/jc278357/Documents/....Dataset_pheno_beta_ROI_127TSA.xlsx',index=True)
-df_hG.to_excel('/volatile/home/jc278357/Documents/..../Dataset_pheno_gamma_ROI_127TSA.xlsx',index=True)
+df_hB_filtered.to_excel('/volatile/home/jc278357/Documents/....Dataset_pheno_beta_ROI_127TSA.xlsx',index=True)
+df_hG_filtered.to_excel('/volatile/home/jc278357/Documents/..../Dataset_pheno_gamma_ROI_127TSA.xlsx',index=True)
 
 
 #%%------------------------------------------------- Multiple Linear Regression ------------------------------------------------------
@@ -218,8 +213,8 @@ def run_Lm_analysis(df, output_filename):
     
     for region in regions:
         # Définir les variables indépendantes
-        x = df[['adi_crr', 'age_years', 'sex']]  # Inclure hypo, âge et sexe
-        x = sm.add_constant(x)  # Ajouter une constante pour l'intercept
+        x = df[['adi_crr', 'age_years', 'sex']] 
+        x = sm.add_constant(x) 
         
         y = df[region]
         
@@ -245,8 +240,8 @@ def run_Lm_analysis(df, output_filename):
 
     results.to_excel(output_filename, index=False)
 
-run_Lm_analysis(df_hB, '/volatile/home/jc278357/Documents/Analyse EEG/résultats_127TSA/Résultats_SSP_inverse/Lm_ASD_beta_adi_crr_age_sex.xlsx')
-run_Lm_analysis(df_hG, '/volatile/home/jc278357/Documents/Analyse EEG/résultats_127TSA/Résultats_SSP_inverse/Lm_ASD_gamma_adi_crr_age_sex.xlsx')
+run_Lm_analysis(df_hB_filtered, '/volatile/home/.../Lm_ASD_beta_adi_crr_age_sex.xlsx')
+run_Lm_analysis(df_hG_filtered, '/volatile/home/.../Lm_ASD_gamma_adi_crr_age_sex.xlsx')
 
 
 # FDR correction
